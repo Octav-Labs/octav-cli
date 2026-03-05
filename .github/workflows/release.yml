@@ -9,8 +9,19 @@ permissions:
   contents: write
 
 jobs:
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: softprops/action-gh-release@v2
+        with:
+          draft: false
+          generate_release_notes: true
+
   build:
     name: Build ${{ matrix.target }}
+    needs: create-release
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
