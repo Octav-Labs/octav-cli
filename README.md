@@ -13,12 +13,6 @@ Command-line interface for the [Octav](https://octav.fi) cryptocurrency portfoli
 
 ## Installation
 
-### Homebrew (macOS/Linux)
-
-```bash
-brew install Octav-Labs/tap/octav
-```
-
 ### Shell script
 
 ```bash
