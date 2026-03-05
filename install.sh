@@ -71,6 +71,7 @@ main() {
     elif command -v sudo >/dev/null 2>&1; then
         install_dir="/usr/local/bin"
         echo "Installing to ${install_dir} (requires sudo)..."
+        sudo mkdir -p "${install_dir}"
         sudo cp "${tmpdir}/${BINARY}" "${install_dir}/${BINARY}"
         sudo chmod +x "${install_dir}/${BINARY}"
     else
