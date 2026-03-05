@@ -56,23 +56,29 @@ main() {
 
     tar -xzf "${tmpdir}/octav.tar.gz" -C "$tmpdir"
 
-    # Install to /usr/local/bin if writable, otherwise ~/.local/bin
+    # Verify binary was extracted
+    if [ ! -f "${tmpdir}/${BINARY}" ]; then
+        echo "Error: failed to extract binary" >&2
+        ls -la "$tmpdir" >&2
+        exit 1
+    fi
+
+    # Install to /usr/local/bin if writable, otherwise try sudo, otherwise ~/.local/bin
     if [ -w /usr/local/bin ]; then
         install_dir="/usr/local/bin"
+        cp "${tmpdir}/${BINARY}" "${install_dir}/${BINARY}"
+        chmod +x "${install_dir}/${BINARY}"
     elif command -v sudo >/dev/null 2>&1; then
         install_dir="/usr/local/bin"
         echo "Installing to ${install_dir} (requires sudo)..."
-        sudo mv "${tmpdir}/${BINARY}" "${install_dir}/${BINARY}"
+        sudo cp "${tmpdir}/${BINARY}" "${install_dir}/${BINARY}"
         sudo chmod +x "${install_dir}/${BINARY}"
-        echo "Installed octav ${version} to ${install_dir}/${BINARY}"
-        return
     else
         install_dir="${HOME}/.local/bin"
         mkdir -p "$install_dir"
+        cp "${tmpdir}/${BINARY}" "${install_dir}/${BINARY}"
+        chmod +x "${install_dir}/${BINARY}"
     fi
-
-    mv "${tmpdir}/${BINARY}" "${install_dir}/${BINARY}"
-    chmod +x "${install_dir}/${BINARY}"
 
     echo "Installed octav ${version} to ${install_dir}/${BINARY}"
 
