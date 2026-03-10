@@ -315,7 +315,6 @@ Errors are returned as JSON on stdout with a non-zero exit code:
 
 | Endpoint | Cost |
 |----------|------|
-| `dashboard` | ~4 credits/address |
 | `portfolio get` | 1 credit/address |
 | `portfolio wallet` | 1 credit/address |
 | `portfolio nav` | 1 credit/address |
