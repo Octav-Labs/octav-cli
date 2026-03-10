@@ -18,6 +18,11 @@ thiserror = "2"
 anyhow = "1"
 dirs = "6"
 regex = "1"
+ratatui = "0.29"
+crossterm = "0.28"
+ratatui-image = { version = "9", default-features = false, features = ["image-defaults", "crossterm"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
+resvg = "0.45"
 
 [dev-dependencies]
 assert_cmd = "2"

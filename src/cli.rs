@@ -65,6 +65,13 @@ pub enum Command {
         address: String,
     },
 
+    /// Interactive portfolio dashboard
+    Dashboard {
+        /// Comma-separated wallet addresses
+        #[arg(long, required = true, value_delimiter = ',')]
+        addresses: Vec<String>,
+    },
+
     /// Agent endpoints (x402 payment)
     Agent {
         #[command(subcommand)]

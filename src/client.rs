@@ -90,7 +90,7 @@ impl OctavClient {
     // Portfolio endpoints
     pub fn get_portfolio(&self, addresses: &[String]) -> Result<Value, OctavError> {
         let params = self.build_address_params(addresses);
-        self.request("GET", &format!("/portfolio?{}&waitForSync=true", params), None)
+        self.request("GET", &format!("/portfolio?{}&waitForSync=true&includeImages=true", params), None)
     }
 
     pub fn get_wallet(&self, addresses: &[String]) -> Result<Value, OctavError> {

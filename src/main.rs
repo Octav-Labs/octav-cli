@@ -3,6 +3,7 @@ mod client;
 mod commands;
 mod config;
 mod error;
+mod tui;
 mod types;
 mod validation;
 
@@ -41,6 +42,12 @@ fn run(cli: Cli) -> Result<Value, OctavError> {
     let raw = cli.raw;
 
     match cli.command {
+        Command::Dashboard { addresses } => {
+            let api_key = resolve_api_key(cli.api_key.as_deref())?;
+            commands::dashboard::run(&api_key, &addresses)?;
+            return Ok(Value::Null);
+        }
+
         Command::Auth { command } => match command {
             AuthCommand::SetKey { key } => commands::auth::set_key(&key),
             AuthCommand::Show => {
@@ -131,7 +138,7 @@ fn run(cli: Cli) -> Result<Value, OctavError> {
                     }
                 },
 
-                Command::Auth { .. } => unreachable!(),
+                Command::Auth { .. } | Command::Dashboard { .. } => unreachable!(),
             }
         }
     }
@@ -142,6 +149,7 @@ fn main() {
     let raw = cli.raw;
 
     match run(cli) {
+        Ok(Value::Null) => {}
         Ok(value) => output(&value, raw),
         Err(e) => {
             let json = e.to_json();
