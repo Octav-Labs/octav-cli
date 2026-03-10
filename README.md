@@ -40,12 +40,41 @@ cp target/release/octav /usr/local/bin/
 # Store your API key (get one at https://octav.fi/api)
 octav auth set-key YOUR_API_KEY
 
-# Check your portfolio
+# Launch the interactive dashboard
+octav dashboard --addresses 0x742d35Cc6634C0532925a3b844Bc9e7595f2bD68
+
+# Or query your portfolio as JSON
 octav portfolio get --addresses 0x742d35Cc6634C0532925a3b844Bc9e7595f2bD68
 
 # Check credit balance
 octav credits
 ```
+
+## Dashboard
+
+Interactive terminal UI for exploring your portfolio. Shows holdings with token icons, protocol breakdown, chain distribution, and transactions.
+
+```bash
+octav dashboard --addresses 0x742d35Cc6634C0532925a3b844Bc9e7595f2bD68
+```
+
+Multiple addresses:
+
+```bash
+octav dashboard --addresses 0xABC...123,0xDEF...456
+```
+
+| Key | Action |
+|-----|--------|
+| `Tab` / `1-4` | Switch screens (Overview, Holdings, Protocols, Transactions) |
+| `j` / `k` | Scroll down / up |
+| `g` / `G` | Jump to top / bottom |
+| `Enter` | Drill into protocol details |
+| `Esc` | Go back |
+| `r` | Refresh data |
+| `q` | Quit |
+
+Token images are cached locally in `~/.octav/cache/images/`.
 
 ## Commands
 
@@ -286,6 +315,7 @@ Errors are returned as JSON on stdout with a non-zero exit code:
 
 | Endpoint | Cost |
 |----------|------|
+| `dashboard` | ~4 credits/address |
 | `portfolio get` | 1 credit/address |
 | `portfolio wallet` | 1 credit/address |
 | `portfolio nav` | 1 credit/address |
