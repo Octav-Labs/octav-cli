@@ -13,8 +13,8 @@ use clap::Parser;
 use serde_json::Value;
 
 use cli::{
-    AgentCommand, AuthCommand, Cli, Command, HistoricalCommand, PortfolioCommand,
-    TransactionsCommand,
+    AddressbookCommand, AgentCommand, AuthCommand, BundlesCommand, ChainsCommand, Cli, Command,
+    HistoricalCommand, PortfolioCommand, TransactionsCommand, VirtualUsersCommand,
 };
 use client::OctavClient;
 use error::OctavError;
@@ -68,8 +68,8 @@ fn run(cli: Cli) -> Result<Value, OctavError> {
 
             match command {
                 Command::Portfolio { command } => match command {
-                    PortfolioCommand::Get { addresses } => {
-                        commands::portfolio::get(&client, &addresses, raw)
+                    PortfolioCommand::Get { addresses, options } => {
+                        commands::portfolio::get(&client, &addresses, &options, raw)
                     }
                     PortfolioCommand::Wallet { addresses } => {
                         commands::portfolio::wallet(&client, &addresses, raw)
@@ -81,27 +81,20 @@ fn run(cli: Cli) -> Result<Value, OctavError> {
                     PortfolioCommand::TokenOverview { addresses, date } => {
                         commands::portfolio::token_overview(&client, &addresses, &date)
                     }
+                    PortfolioCommand::AtBlock {
+                        address,
+                        chain,
+                        block,
+                    } => commands::portfolio::at_block(&client, &address, &chain, block, raw),
                 },
 
                 Command::Transactions { command } => match command {
                     TransactionsCommand::Get {
                         addresses,
-                        chain,
-                        tx_type,
-                        start_date,
-                        end_date,
+                        filters,
                         offset,
                         limit,
-                    } => commands::transactions::get(
-                        &client,
-                        &addresses,
-                        chain.as_deref(),
-                        tx_type.as_deref(),
-                        start_date.as_deref(),
-                        end_date.as_deref(),
-                        offset,
-                        limit,
-                    ),
+                    } => commands::transactions::get(&client, &addresses, &filters, offset, limit),
                     TransactionsCommand::Sync { addresses } => {
                         commands::transactions::sync(&client, &addresses)
                     }
@@ -128,6 +121,74 @@ fn run(cli: Cli) -> Result<Value, OctavError> {
                 Command::Polymarket { address } => {
                     commands::specialized::polymarket(&client, &address)
                 }
+                Command::Approvals {
+                    address,
+                    chain,
+                    limit,
+                    cursor,
+                } => commands::specialized::approvals(
+                    &client,
+                    &address,
+                    &chain,
+                    limit,
+                    cursor.as_deref(),
+                ),
+
+                Command::Chains { command } => match command {
+                    ChainsCommand::List => commands::metadata::chains(&client),
+                    ChainsCommand::Protocols { chain, page, limit } => {
+                        commands::metadata::chain_protocols(&client, &chain, page, limit)
+                    }
+                },
+                Command::ContractProtocol { contract, chain } => {
+                    commands::metadata::contract_protocol(&client, &contract, chain.as_deref())
+                }
+
+                Command::Addressbook { command } => match command {
+                    AddressbookCommand::List => commands::addressbook::list(&client),
+                    AddressbookCommand::Add { addresses, label } => {
+                        commands::addressbook::add(&client, &addresses, label.as_deref())
+                    }
+                    AddressbookCommand::Rename {
+                        address,
+                        label,
+                        yes,
+                    } => commands::addressbook::rename(&client, &address, &label, yes),
+                    AddressbookCommand::Remove { address, yes } => {
+                        commands::addressbook::remove(&client, &address, yes)
+                    }
+                },
+
+                Command::Bundles { command } => match command {
+                    BundlesCommand::List => commands::bundles::list(&client),
+                    BundlesCommand::Get { id } => commands::bundles::get(&client, &id),
+                    BundlesCommand::Create { name, addresses } => {
+                        commands::bundles::create(&client, &name, &addresses)
+                    }
+                    BundlesCommand::Rename { id, name, yes } => {
+                        commands::bundles::rename(&client, &id, &name, yes)
+                    }
+                    BundlesCommand::Delete { id, yes } => {
+                        commands::bundles::delete(&client, &id, yes)
+                    }
+                    BundlesCommand::AddAddress { id, address } => {
+                        commands::bundles::add_address(&client, &id, &address)
+                    }
+                    BundlesCommand::RemoveAddress { id, address, yes } => {
+                        commands::bundles::remove_address(&client, &id, &address, yes)
+                    }
+                },
+
+                Command::VirtualUsers { command } => match command {
+                    VirtualUsersCommand::List => commands::virtual_users::list(&client),
+                    VirtualUsersCommand::Portfolio {
+                        addresses,
+                        aggregated,
+                        options,
+                    } => commands::virtual_users::portfolio(
+                        &client, &addresses, aggregated, &options, raw,
+                    ),
+                },
 
                 Command::Agent { command } => match command {
                     AgentCommand::Wallet { addresses } => {
@@ -136,6 +197,16 @@ fn run(cli: Cli) -> Result<Value, OctavError> {
                     AgentCommand::Portfolio { addresses } => {
                         commands::specialized::agent_portfolio(&client, &addresses, raw)
                     }
+                    AgentCommand::Nav {
+                        addresses,
+                        currency,
+                    } => {
+                        commands::specialized::agent_nav(&client, &addresses, &currency.to_string())
+                    }
+                    AgentCommand::Status { addresses } => {
+                        commands::specialized::agent_status(&client, &addresses)
+                    }
+                    AgentCommand::Chains => commands::specialized::agent_chains(&client),
                 },
 
                 Command::Auth { .. } | Command::Dashboard { .. } => unreachable!(),

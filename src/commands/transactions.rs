@@ -1,25 +1,25 @@
 use serde_json::Value;
 
+use crate::cli::TransactionFilters;
 use crate::client::OctavClient;
 use crate::error::OctavError;
 use crate::validation;
 
-#[allow(clippy::too_many_arguments)]
 pub fn get(
     client: &OctavClient,
     addresses: &[String],
-    chain: Option<&str>,
-    tx_type: Option<&str>,
-    start_date: Option<&str>,
-    end_date: Option<&str>,
+    filters: &TransactionFilters,
     offset: u32,
     limit: u32,
 ) -> Result<Value, OctavError> {
     validation::validate_addresses(addresses)?;
-    if let Some(sd) = start_date {
+    for addr in &filters.interacting_address {
+        validation::validate_address(addr)?;
+    }
+    if let Some(sd) = &filters.start_date {
         validation::validate_date(sd)?;
     }
-    if let Some(ed) = end_date {
+    if let Some(ed) = &filters.end_date {
         validation::validate_date(ed)?;
     }
     if limit > 250 {
@@ -27,9 +27,7 @@ pub fn get(
             "Limit must be at most 250.".to_string(),
         ));
     }
-    client.get_transactions(
-        addresses, chain, tx_type, start_date, end_date, offset, limit,
-    )
+    client.get_transactions(addresses, filters, offset, limit)
 }
 
 pub fn sync(client: &OctavClient, addresses: &[String]) -> Result<Value, OctavError> {

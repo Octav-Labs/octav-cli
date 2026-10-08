@@ -1,5 +1,6 @@
 use std::sync::mpsc;
 
+use crate::cli::{PortfolioOptions, TransactionFilters};
 use crate::client::OctavClient;
 use crate::tui::data;
 use crate::tui::event::DataEvent;
@@ -33,7 +34,7 @@ pub fn spawn_fetch(api_key: String, addresses: Vec<String>, tx: mpsc::Sender<Dat
         }
 
         // Portfolio (1 credit/addr)
-        match client.get_portfolio(&addresses) {
+        match client.get_portfolio(&addresses, &PortfolioOptions::default()) {
             Ok(json) => {
                 let (protocols, holdings, chains) = data::parse_portfolio(&json);
                 let _ = tx.send(DataEvent::PortfolioLoaded {
@@ -48,7 +49,7 @@ pub fn spawn_fetch(api_key: String, addresses: Vec<String>, tx: mpsc::Sender<Dat
         }
 
         // Transactions (1 credit/addr)
-        match client.get_transactions(&addresses, None, None, None, None, 0, 250) {
+        match client.get_transactions(&addresses, &TransactionFilters::default(), 0, 250) {
             Ok(json) => {
                 let (items, total) = data::parse_transactions(&json);
                 let _ = tx.send(DataEvent::TransactionsLoaded { items, total });

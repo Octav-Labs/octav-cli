@@ -17,6 +17,9 @@ pub enum OctavError {
     #[error("Validation error: {0}")]
     Validation(String),
 
+    #[error("Confirmation required: {0}")]
+    ConfirmationRequired(String),
+
     #[error("No API key configured. Use `octav auth set-key <KEY>`, set OCTAV_API_KEY, or pass --api-key.")]
     Config(String),
 
@@ -53,6 +56,9 @@ impl OctavError {
             }),
             OctavError::Validation(msg) => json!({
                 "error": { "type": "validation", "message": msg }
+            }),
+            OctavError::ConfirmationRequired(msg) => json!({
+                "error": { "type": "confirmation_required", "message": msg }
             }),
             OctavError::Config(msg) => json!({
                 "error": { "type": "config", "message": msg }
