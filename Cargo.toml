@@ -23,6 +23,8 @@ crossterm = "0.28"
 ratatui-image = { version = "9", default-features = false, features = ["image-defaults", "crossterm"] }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
 resvg = "0.45"
+flate2 = "1"
+tar = "0.4"
 
 [dev-dependencies]
 assert_cmd = "2"

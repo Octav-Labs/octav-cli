@@ -1,7 +1,11 @@
 use clap::{Args, Parser, Subcommand, ValueEnum};
 
 #[derive(Parser)]
-#[command(name = "octav", about = "CLI for the Octav crypto portfolio API")]
+#[command(
+    name = "octav",
+    version,
+    about = "CLI for the Octav crypto portfolio API"
+)]
 pub struct Cli {
     /// API key (overrides OCTAV_API_KEY env and config file)
     #[arg(long, global = true, env = "OCTAV_API_KEY")]
@@ -133,6 +137,16 @@ pub enum Command {
     Agent {
         #[command(subcommand)]
         command: AgentCommand,
+    },
+
+    /// Update octav to the latest release
+    ///
+    /// Replaces the running binary with the latest GitHub release. Installs made with
+    /// cargo or built from source are not replaced; the command prints what to run instead.
+    Update {
+        /// Only check whether a newer version is available
+        #[arg(long)]
+        check: bool,
     },
 }
 

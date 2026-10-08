@@ -5,6 +5,7 @@ mod config;
 mod error;
 mod tui;
 mod types;
+mod update;
 mod validation;
 
 use std::process;
@@ -46,6 +47,14 @@ fn run(cli: Cli) -> Result<Value, OctavError> {
             let api_key = resolve_api_key(cli.api_key.as_deref())?;
             commands::dashboard::run(&api_key, &addresses)?;
             return Ok(Value::Null);
+        }
+
+        Command::Update { check } => {
+            if check {
+                update::check()
+            } else {
+                update::update()
+            }
         }
 
         Command::Auth { command } => match command {
@@ -209,7 +218,9 @@ fn run(cli: Cli) -> Result<Value, OctavError> {
                     AgentCommand::Chains => commands::specialized::agent_chains(&client),
                 },
 
-                Command::Auth { .. } | Command::Dashboard { .. } => unreachable!(),
+                Command::Auth { .. } | Command::Dashboard { .. } | Command::Update { .. } => {
+                    unreachable!()
+                }
             }
         }
     }
@@ -219,14 +230,28 @@ fn main() {
     let cli = Cli::parse();
     let raw = cli.raw;
 
-    match run(cli) {
-        Ok(Value::Null) => {}
-        Ok(value) => output(&value, raw),
+    // The dashboard owns the terminal, and `update` checks for itself
+    let update_check = match cli.command {
+        Command::Dashboard { .. } | Command::Update { .. } => None,
+        _ => update::start_background_check(),
+    };
+
+    let code = match run(cli) {
+        Ok(Value::Null) => 0,
+        Ok(value) => {
+            output(&value, raw);
+            0
+        }
         Err(e) => {
             let json = e.to_json();
             let out = serde_json::to_string_pretty(&json).unwrap();
             println!("{}", out);
-            process::exit(1);
+            1
         }
+    };
+
+    if let Some(check) = update_check {
+        check.finish();
     }
+    process::exit(code);
 }

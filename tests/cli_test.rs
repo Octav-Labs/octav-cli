@@ -18,6 +18,27 @@ fn test_help() {
 }
 
 #[test]
+fn test_version() {
+    octav()
+        .arg("--version")
+        .assert()
+        .success()
+        .stdout(format!("octav {}\n", env!("CARGO_PKG_VERSION")));
+}
+
+#[test]
+fn test_update_help() {
+    octav()
+        .args(["update", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(
+            "Update octav to the latest release",
+        ))
+        .stdout(predicate::str::contains("--check"));
+}
+
+#[test]
 fn test_portfolio_help() {
     octav()
         .args(["portfolio", "--help"])

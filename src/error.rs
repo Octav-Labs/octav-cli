@@ -25,6 +25,9 @@ pub enum OctavError {
 
     #[error("Network error: {0}")]
     Network(String),
+
+    #[error("Update failed: {0}")]
+    Update(String),
 }
 
 impl OctavError {
@@ -65,6 +68,9 @@ impl OctavError {
             }),
             OctavError::Network(msg) => json!({
                 "error": { "type": "network", "message": msg }
+            }),
+            OctavError::Update(msg) => json!({
+                "error": { "type": "update", "message": msg }
             }),
         }
     }
