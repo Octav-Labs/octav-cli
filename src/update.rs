@@ -10,6 +10,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 
 use crate::config;
 use crate::error::OctavError;
@@ -107,12 +108,15 @@ fn cargo_bin_dir() -> Option<PathBuf> {
     Some(bin.canonicalize().unwrap_or(bin))
 }
 
-/// Download a release archive and return the bytes of the `octav` binary inside it
-fn download_binary(url: &str) -> Result<Vec<u8>, OctavError> {
+/// Download a release file; `None` if the release doesn't have it
+fn download(url: &str) -> Result<Option<Vec<u8>>, OctavError> {
     let response = http_client(Duration::from_secs(120))?
         .get(url)
         .send()
         .map_err(|e| OctavError::Update(format!("Failed to download {}: {}", url, e)))?;
+    if response.status() == reqwest::StatusCode::NOT_FOUND {
+        return Ok(None);
+    }
     if !response.status().is_success() {
         return Err(OctavError::Update(format!(
             "Failed to download {}: HTTP {}",
@@ -123,10 +127,39 @@ fn download_binary(url: &str) -> Result<Vec<u8>, OctavError> {
     let bytes = response
         .bytes()
         .map_err(|e| OctavError::Update(format!("Failed to download {}: {}", url, e)))?;
+    Ok(Some(bytes.to_vec()))
+}
 
+/// Check `data` against its entry in a `sha256sum`-format file ("<hex>  <file name>" per line).
+/// This catches corrupted or truncated downloads; the checksum is published alongside the
+/// archive, so it does not prove who published the release.
+fn verify_checksum(data: &[u8], checksums: &str, file_name: &str) -> Result<(), OctavError> {
+    let expected = checksums
+        .lines()
+        .filter_map(|line| line.trim().split_once(char::is_whitespace))
+        .find(|(_, name)| name.trim().trim_start_matches('*').rsplit('/').next() == Some(file_name))
+        .map(|(hash, _)| hash.to_ascii_lowercase())
+        .ok_or_else(|| {
+            OctavError::Update(format!(
+                "The release checksum file has no entry for {}; nothing was changed",
+                file_name
+            ))
+        })?;
+    let actual = format!("{:x}", Sha256::digest(data));
+    if actual != expected {
+        return Err(OctavError::Update(format!(
+            "Checksum mismatch for {}; the download may be corrupted. Nothing was changed",
+            file_name
+        )));
+    }
+    Ok(())
+}
+
+/// Return the bytes of the `octav` binary inside a release `.tar.gz`
+fn extract_binary(archive_bytes: &[u8]) -> Result<Vec<u8>, OctavError> {
     let read_error =
         |e: std::io::Error| OctavError::Update(format!("Invalid release archive: {}", e));
-    let mut archive = tar::Archive::new(flate2::read::GzDecoder::new(&bytes[..]));
+    let mut archive = tar::Archive::new(flate2::read::GzDecoder::new(archive_bytes));
     for entry in archive.entries().map_err(read_error)? {
         let mut entry = entry.map_err(read_error)?;
         if entry.path().map_err(read_error)?.file_name() == Some(OsStr::new("octav")) {
@@ -232,12 +265,31 @@ pub fn update() -> Result<Value, OctavError> {
             std::env::consts::ARCH
         ))
     })?;
-    let url = format!(
-        "https://github.com/{}/releases/download/{}/octav-{}.tar.gz",
-        REPO, tag, target
-    );
+    // Asset names produced by the release workflow (upload-rust-binary-action)
+    let base = format!("https://github.com/{}/releases/download/{}", REPO, tag);
+    let archive_name = format!("octav-{}.tar.gz", target);
+    let checksum_name = format!("octav-{}.sha256", target);
 
-    let binary = download_binary(&url)?;
+    let archive = download(&format!("{}/{}", base, archive_name))?.ok_or_else(|| {
+        OctavError::Update(format!(
+            "Release {} has no binary for {}; nothing was changed",
+            tag, target
+        ))
+    })?;
+    let checksums = download(&format!("{}/{}", base, checksum_name))?.ok_or_else(|| {
+        OctavError::Update(format!(
+            "Release {} has no checksum file ({}), so the download can't be verified. \
+             Nothing was changed",
+            tag, checksum_name
+        ))
+    })?;
+    verify_checksum(
+        &archive,
+        &String::from_utf8_lossy(&checksums),
+        &archive_name,
+    )?;
+
+    let binary = extract_binary(&archive)?;
     install_binary(&binary, &exe)?;
 
     Ok(json!({
@@ -383,6 +435,61 @@ mod tests {
             other_install_method(Path::new("/usr/local/bin/octav"), Some(cargo_bin)),
             None
         );
+    }
+
+    // sha256("hello")
+    const HELLO_SHA256: &str = "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824";
+
+    #[test]
+    fn test_verify_checksum() {
+        let file = format!("{}  octav-aarch64-apple-darwin.tar.gz\n", HELLO_SHA256);
+        assert!(verify_checksum(b"hello", &file, "octav-aarch64-apple-darwin.tar.gz").is_ok());
+
+        // binary-mode marker, uppercase hex, and other entries in the same file
+        let file = format!(
+            "{}  other.zip\n{} *octav-aarch64-apple-darwin.tar.gz\n",
+            "0".repeat(64),
+            HELLO_SHA256.to_uppercase()
+        );
+        assert!(verify_checksum(b"hello", &file, "octav-aarch64-apple-darwin.tar.gz").is_ok());
+    }
+
+    #[test]
+    fn test_verify_checksum_rejects_mismatch_and_missing_entry() {
+        let file = format!("{}  octav-aarch64-apple-darwin.tar.gz\n", HELLO_SHA256);
+        let mismatch = verify_checksum(b"hellO", &file, "octav-aarch64-apple-darwin.tar.gz");
+        assert!(mismatch
+            .unwrap_err()
+            .to_string()
+            .contains("Checksum mismatch"));
+
+        let missing = verify_checksum(b"hello", &file, "octav-x86_64-apple-darwin.tar.gz");
+        assert!(missing.unwrap_err().to_string().contains("no entry"));
+
+        assert!(verify_checksum(b"hello", "", "octav-aarch64-apple-darwin.tar.gz").is_err());
+    }
+
+    fn tar_gz(files: &[(&str, &[u8])]) -> Vec<u8> {
+        let encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+        let mut builder = tar::Builder::new(encoder);
+        for (name, data) in files {
+            let mut header = tar::Header::new_gnu();
+            header.set_size(data.len() as u64);
+            header.set_mode(0o755);
+            header.set_cksum();
+            builder.append_data(&mut header, name, *data).unwrap();
+        }
+        builder.into_inner().unwrap().finish().unwrap()
+    }
+
+    #[test]
+    fn test_extract_binary() {
+        let archive = tar_gz(&[("README.md", b"docs"), ("octav", b"binary")]);
+        assert_eq!(extract_binary(&archive).unwrap(), b"binary");
+
+        let archive = tar_gz(&[("README.md", b"docs")]);
+        assert!(extract_binary(&archive).is_err());
+        assert!(extract_binary(b"not a tarball").is_err());
     }
 
     #[test]

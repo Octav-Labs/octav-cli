@@ -44,6 +44,8 @@ octav update             # install the latest release
 
 `octav update` replaces the binary installed by the shell script. If you installed with Cargo, run `cargo install octav` instead; for source builds, `git pull` and rebuild. `octav update` tells you which applies.
 
+Before installing, `octav update` checks the download against the SHA-256 checksum published with the release and stops without changing anything if it doesn't match.
+
 When run in an interactive terminal, octav checks GitHub for a new release at most once a day and prints a notice to stderr if one is available. The check never runs in scripts, CI or other non-interactive use, and never changes command output. Set `OCTAV_NO_UPDATE_CHECK=1` to turn it off.
 
 ## Quick Start

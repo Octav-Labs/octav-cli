@@ -47,4 +47,5 @@ jobs:
           bin: octav
           target: ${{ matrix.target }}
           archive: octav-$target
+          checksum: sha256
           token: ${{ secrets.GITHUB_TOKEN }}
