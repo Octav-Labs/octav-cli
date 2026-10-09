@@ -12,3 +12,26 @@ pub fn status(client: &OctavClient, addresses: &[String]) -> Result<Value, Octav
     validation::validate_addresses(addresses)?;
     client.get_status(addresses)
 }
+
+pub fn chains(client: &OctavClient) -> Result<Value, OctavError> {
+    client.get_chains()
+}
+
+pub fn chain_protocols(
+    client: &OctavClient,
+    chain: &str,
+    page: u32,
+    limit: u32,
+) -> Result<Value, OctavError> {
+    validation::validate_path_segment("chain", chain)?;
+    client.get_chain_protocols(chain, page, limit)
+}
+
+pub fn contract_protocol(
+    client: &OctavClient,
+    contract: &str,
+    chain: Option<&str>,
+) -> Result<Value, OctavError> {
+    validation::validate_address(contract)?;
+    client.get_contract_protocol(contract, chain)
+}

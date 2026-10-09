@@ -15,6 +15,18 @@ pub fn polymarket(client: &OctavClient, address: &str) -> Result<Value, OctavErr
     client.get_polymarket(address)
 }
 
+pub fn approvals(
+    client: &OctavClient,
+    address: &str,
+    chain: &str,
+    limit: u32,
+    cursor: Option<&str>,
+) -> Result<Value, OctavError> {
+    validation::validate_evm_address(address)?;
+    validation::validate_path_segment("chain", chain)?;
+    client.get_approvals(address, chain, limit, cursor)
+}
+
 pub fn agent_wallet(
     client: &OctavClient,
     addresses: &[String],
@@ -39,4 +51,22 @@ pub fn agent_portfolio(
         strip_portfolio_fields(&mut data);
     }
     Ok(data)
+}
+
+pub fn agent_nav(
+    client: &OctavClient,
+    addresses: &[String],
+    currency: &str,
+) -> Result<Value, OctavError> {
+    validation::validate_addresses(addresses)?;
+    client.get_agent_nav(addresses, currency)
+}
+
+pub fn agent_status(client: &OctavClient, addresses: &[String]) -> Result<Value, OctavError> {
+    validation::validate_addresses(addresses)?;
+    client.get_agent_status(addresses)
+}
+
+pub fn agent_chains(client: &OctavClient) -> Result<Value, OctavError> {
+    client.get_agent_chains()
 }

@@ -1,13 +1,19 @@
 use serde_json::Value;
 
+use crate::cli::PortfolioOptions;
 use crate::client::OctavClient;
 use crate::error::OctavError;
 use crate::types::strip_portfolio_fields;
 use crate::validation;
 
-pub fn get(client: &OctavClient, addresses: &[String], raw: bool) -> Result<Value, OctavError> {
+pub fn get(
+    client: &OctavClient,
+    addresses: &[String],
+    options: &PortfolioOptions,
+    raw: bool,
+) -> Result<Value, OctavError> {
     validation::validate_addresses(addresses)?;
-    let mut data = client.get_portfolio(addresses)?;
+    let mut data = client.get_portfolio(addresses, options)?;
     if !raw {
         strip_portfolio_fields(&mut data);
     }
@@ -40,4 +46,19 @@ pub fn token_overview(
     validation::validate_addresses(addresses)?;
     validation::validate_date(date)?;
     client.get_token_overview(addresses, date)
+}
+
+pub fn at_block(
+    client: &OctavClient,
+    address: &str,
+    chain: &str,
+    block: u64,
+    raw: bool,
+) -> Result<Value, OctavError> {
+    validation::validate_evm_address(address)?;
+    let mut data = client.get_portfolio_at_block(address, chain, block)?;
+    if !raw {
+        strip_portfolio_fields(&mut data);
+    }
+    Ok(data)
 }
