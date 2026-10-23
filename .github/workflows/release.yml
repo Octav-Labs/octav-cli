@@ -4,6 +4,17 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to publish to crates.io (e.g. v0.3.1)"
+        required: true
+        type: string
+      dry_run:
+        description: "Package and verify only, without crates.io auth"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -11,6 +22,7 @@ permissions:
 jobs:
   create-release:
     name: Create Release
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,6 +34,7 @@ jobs:
   build:
     name: Build ${{ matrix.target }}
     needs: create-release
+    if: github.event_name == 'push'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -49,3 +62,46 @@ jobs:
           archive: octav-$target
           checksum: sha256
           token: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-crate:
+    name: Publish to crates.io
+    needs: build
+    # Runs after a successful binary build on tag push, or standalone via
+    # workflow_dispatch (build is skipped there, which is not a failure).
+    if: ${{ !cancelled() && needs.build.result != 'failure' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # OIDC token exchange with crates.io (trusted publishing)
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Verify Cargo.toml version matches tag
+        run: |
+          expected="${RELEASE_TAG#v}"
+          actual="$(grep -m1 '^version = ' Cargo.toml | sed -E 's/^version = "(.*)"$/\1/')"
+          if [ "$expected" != "$actual" ]; then
+            echo "::error::tag $RELEASE_TAG does not match Cargo.toml version $actual"
+            exit 1
+          fi
+
+      - name: Dry run
+        if: ${{ inputs.dry_run }}
+        run: cargo publish --dry-run --locked
+
+      - name: Authenticate with crates.io
+        if: ${{ !inputs.dry_run }}
+        id: auth
+        uses: rust-lang/crates-io-auth-action@v1
+
+      - name: Publish
+        if: ${{ !inputs.dry_run }}
+        run: cargo publish --locked
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
