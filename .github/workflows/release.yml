@@ -4,6 +4,17 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to publish to crates.io (e.g. v0.3.1)"
+        required: true
+        type: string
+      dry_run:
+        description: "Package and verify only, without crates.io auth"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -11,6 +22,7 @@ permissions:
 jobs:
   create-release:
     name: Create Release
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,6 +34,7 @@ jobs:
   build:
     name: Build ${{ matrix.target }}
     needs: create-release
+    if: github.event_name == 'push'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -49,3 +62,54 @@ jobs:
           archive: octav-$target
           checksum: sha256
           token: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-crate:
+    name: Publish to crates.io
+    needs: build
+    # Tag push: only after the binary build succeeded. Manual dispatch: only
+    # from main (the environment policy enforces the same, this fails earlier).
+    if: >-
+      ${{ !cancelled() && (
+        (github.event_name == 'push' && needs.build.result == 'success') ||
+        (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+      ) }}
+    runs-on: ubuntu-latest
+    # Required reviewer + ref policy (v* tags, main) live on this environment;
+    # the crates.io trusted-publishing entry is bound to the same name.
+    environment: crates-io
+    permissions:
+      contents: read
+      id-token: write # OIDC token exchange with crates.io (trusted publishing)
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: refs/tags/${{ env.RELEASE_TAG }}
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable, 2026-10-23
+
+      - name: Verify Cargo.toml version matches tag
+        run: |
+          expected="${RELEASE_TAG#v}"
+          actual="$(grep -m1 '^version = ' Cargo.toml | sed -E 's/^version = "(.*)"$/\1/')"
+          if [ "$expected" != "$actual" ]; then
+            echo "::error::tag $RELEASE_TAG does not match Cargo.toml version $actual"
+            exit 1
+          fi
+
+      - name: Dry run
+        if: ${{ inputs.dry_run }}
+        run: cargo publish --dry-run --locked
+
+      - name: Authenticate with crates.io
+        if: ${{ !inputs.dry_run }}
+        id: auth
+        uses: rust-lang/crates-io-auth-action@3268eb413133e2960fa4ae0e963ca76380c54cd9 # v1.0.6
+
+      - name: Publish
+        if: ${{ !inputs.dry_run }}
+        run: cargo publish --locked
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
