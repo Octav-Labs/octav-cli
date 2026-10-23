@@ -66,9 +66,13 @@ jobs:
   publish-crate:
     name: Publish to crates.io
     needs: build
-    # Runs after a successful binary build on tag push, or standalone via
-    # workflow_dispatch (build is skipped there, which is not a failure).
-    if: ${{ !cancelled() && needs.build.result != 'failure' }}
+    # Tag push: only after the binary build succeeded. Manual dispatch: only
+    # from main (the environment policy enforces the same, this fails earlier).
+    if: >-
+      ${{ !cancelled() && (
+        (github.event_name == 'push' && needs.build.result == 'success') ||
+        (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+      ) }}
     runs-on: ubuntu-latest
     # Required reviewer + ref policy (v* tags, main) live on this environment;
     # the crates.io trusted-publishing entry is bound to the same name.
@@ -81,7 +85,8 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          ref: ${{ env.RELEASE_TAG }}
+          ref: refs/tags/${{ env.RELEASE_TAG }}
+          persist-credentials: false
 
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable, 2026-10-23
 
