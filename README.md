@@ -191,7 +191,7 @@ octav transactions get \
 | `--token-id` | Filter by NFT token ID | — |
 | `--start-date` | Start date (YYYY-MM-DD) | — |
 | `--end-date` | End date (YYYY-MM-DD) | — |
-| `--sort` | `asc` or `desc` by timestamp | `desc` |
+| `--sort` | `newest` or `oldest` by timestamp (`desc` / `asc` also accepted) | `newest` |
 | `--hide-spam` | Exclude spam transactions | off |
 | `--hide-dust` | Exclude dust transactions | off |
 | `--offset` | Pagination offset | `0` |

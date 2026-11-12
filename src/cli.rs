@@ -271,7 +271,7 @@ pub struct TransactionFilters {
     /// End date (YYYY-MM-DD)
     #[arg(long)]
     pub end_date: Option<String>,
-    /// Sort order by timestamp [default: desc]
+    /// Sort order by timestamp [default: newest]
     #[arg(long, ignore_case = true)]
     pub sort: Option<SortOrder>,
     /// Exclude spam transactions
@@ -529,15 +529,20 @@ impl std::fmt::Display for Currency {
 
 #[derive(Debug, Clone, ValueEnum)]
 pub enum SortOrder {
-    Asc,
-    Desc,
+    /// Newest first (the API default)
+    #[value(alias = "desc")]
+    Newest,
+    /// Oldest first
+    #[value(alias = "asc")]
+    Oldest,
 }
 
 impl std::fmt::Display for SortOrder {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            SortOrder::Asc => write!(f, "ASC"),
-            SortOrder::Desc => write!(f, "DESC"),
+            // The API ignores any other value and returns newest first
+            SortOrder::Newest => write!(f, "NEWEST"),
+            SortOrder::Oldest => write!(f, "OLDEST"),
         }
     }
 }
