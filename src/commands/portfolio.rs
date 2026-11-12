@@ -12,7 +12,7 @@ pub fn get(
     options: &PortfolioOptions,
     raw: bool,
 ) -> Result<Value, OctavError> {
-    validation::validate_addresses(addresses)?;
+    validation::validate_addresses(addresses, validation::SINGLE_ADDRESS)?;
     let mut data = client.get_portfolio(addresses, options)?;
     if !raw {
         strip_portfolio_fields(&mut data);
@@ -21,7 +21,7 @@ pub fn get(
 }
 
 pub fn wallet(client: &OctavClient, addresses: &[String], raw: bool) -> Result<Value, OctavError> {
-    validation::validate_addresses(addresses)?;
+    validation::validate_addresses(addresses, validation::SINGLE_ADDRESS)?;
     let mut data = client.get_wallet(addresses)?;
     if !raw {
         strip_portfolio_fields(&mut data);
@@ -34,7 +34,7 @@ pub fn nav(
     addresses: &[String],
     currency: &str,
 ) -> Result<Value, OctavError> {
-    validation::validate_addresses(addresses)?;
+    validation::validate_addresses(addresses, validation::MAX_MULTI_ADDRESSES)?;
     client.get_nav(addresses, currency)
 }
 
@@ -43,7 +43,7 @@ pub fn token_overview(
     addresses: &[String],
     date: &str,
 ) -> Result<Value, OctavError> {
-    validation::validate_addresses(addresses)?;
+    validation::validate_addresses(addresses, validation::SINGLE_ADDRESS)?;
     validation::validate_date(date)?;
     client.get_token_overview(addresses, date)
 }

@@ -345,8 +345,7 @@ impl OctavClient {
         aggregated: bool,
         options: &PortfolioOptions,
     ) -> Result<Value, OctavError> {
-        // Unlike other endpoints, virtual user addresses go in a single comma-separated value
-        let mut params = vec![("addresses", addresses.join(","))];
+        let mut params = address_params(addresses);
         if aggregated {
             params.push(("aggregated", "true".to_string()));
         }
@@ -393,8 +392,9 @@ impl OctavClient {
     }
 }
 
+/// The API reads `addresses` as one comma-separated value; a repeated param is rejected
 fn address_params(addresses: &[String]) -> Params {
-    addresses.iter().map(|a| ("addresses", a.clone())).collect()
+    vec![("addresses", addresses.join(","))]
 }
 
 fn portfolio_params(options: &PortfolioOptions) -> Params {
@@ -483,6 +483,22 @@ mod tests {
 
     fn addrs() -> Vec<String> {
         vec!["0x742d35Cc6634C0532925a3b844Bc9e7595f2bD68".to_string()]
+    }
+
+    #[test]
+    fn test_address_params_send_one_comma_separated_value() {
+        let addresses = vec![
+            "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD68".to_string(),
+            "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU".to_string(),
+        ];
+        assert_eq!(
+            address_params(&addresses),
+            vec![(
+                "addresses",
+                "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD68,7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU"
+                    .to_string()
+            )]
+        );
     }
 
     #[test]

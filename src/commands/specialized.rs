@@ -32,7 +32,7 @@ pub fn agent_wallet(
     addresses: &[String],
     raw: bool,
 ) -> Result<Value, OctavError> {
-    validation::validate_addresses(addresses)?;
+    validation::validate_addresses(addresses, validation::SINGLE_ADDRESS)?;
     let mut data = client.get_agent_wallet(addresses)?;
     if !raw {
         strip_portfolio_fields(&mut data);
@@ -45,7 +45,7 @@ pub fn agent_portfolio(
     addresses: &[String],
     raw: bool,
 ) -> Result<Value, OctavError> {
-    validation::validate_addresses(addresses)?;
+    validation::validate_addresses(addresses, validation::SINGLE_ADDRESS)?;
     let mut data = client.get_agent_portfolio(addresses)?;
     if !raw {
         strip_portfolio_fields(&mut data);
@@ -58,12 +58,12 @@ pub fn agent_nav(
     addresses: &[String],
     currency: &str,
 ) -> Result<Value, OctavError> {
-    validation::validate_addresses(addresses)?;
+    validation::validate_addresses(addresses, validation::MAX_MULTI_ADDRESSES)?;
     client.get_agent_nav(addresses, currency)
 }
 
 pub fn agent_status(client: &OctavClient, addresses: &[String]) -> Result<Value, OctavError> {
-    validation::validate_addresses(addresses)?;
+    validation::validate_addresses(addresses, validation::SINGLE_ADDRESS)?;
     client.get_agent_status(addresses)
 }
 
