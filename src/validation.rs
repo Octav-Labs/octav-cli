@@ -85,17 +85,44 @@ pub fn require_confirmation(yes: bool, effect: &str) -> Result<(), OctavError> {
     }
 }
 
-pub fn validate_virtual_addresses(addresses: &[String]) -> Result<(), OctavError> {
+/// Most wallet data endpoints take one address per call
+pub const SINGLE_ADDRESS: Option<usize> = Some(1);
+/// `/nav` and `/virtual-users/portfolio` accept up to 50 addresses
+pub const MAX_MULTI_ADDRESSES: Option<usize> = Some(50);
+
+fn check_address_count(addresses: &[String], max: Option<usize>) -> Result<(), OctavError> {
     if addresses.is_empty() {
         return Err(OctavError::Validation(
             "At least one address is required.".to_string(),
         ));
     }
-    if addresses.len() > 10 {
-        return Err(OctavError::Validation(
-            "Maximum 10 addresses allowed.".to_string(),
-        ));
+    match max {
+        Some(1) if addresses.len() > 1 => Err(OctavError::Validation(
+            "This endpoint accepts one address per call. Run the command once per address."
+                .to_string(),
+        )),
+        Some(max) if addresses.len() > max => Err(OctavError::Validation(format!(
+            "Maximum {} addresses allowed.",
+            max
+        ))),
+        _ => Ok(()),
     }
+}
+
+fn check_no_duplicates(addresses: &[String]) -> Result<(), OctavError> {
+    for (i, addr) in addresses.iter().enumerate() {
+        if addresses[..i].contains(addr) {
+            return Err(OctavError::Validation(format!(
+                "Duplicate address: '{}'.",
+                addr
+            )));
+        }
+    }
+    Ok(())
+}
+
+pub fn validate_virtual_addresses(addresses: &[String]) -> Result<(), OctavError> {
+    check_address_count(addresses, MAX_MULTI_ADDRESSES)?;
     for addr in addresses {
         match addr.strip_prefix("virtual:") {
             Some(id) if PATH_SEGMENT_REGEX.is_match(id) => {}
@@ -107,24 +134,16 @@ pub fn validate_virtual_addresses(addresses: &[String]) -> Result<(), OctavError
             }
         }
     }
-    Ok(())
+    check_no_duplicates(addresses)
 }
 
-pub fn validate_addresses(addresses: &[String]) -> Result<(), OctavError> {
-    if addresses.is_empty() {
-        return Err(OctavError::Validation(
-            "At least one address is required.".to_string(),
-        ));
-    }
-    if addresses.len() > 10 {
-        return Err(OctavError::Validation(
-            "Maximum 10 addresses allowed.".to_string(),
-        ));
-    }
+/// Validate wallet addresses against the endpoint's limit (`None` for no limit)
+pub fn validate_addresses(addresses: &[String], max: Option<usize>) -> Result<(), OctavError> {
+    check_address_count(addresses, max)?;
     for addr in addresses {
         validate_address(addr)?;
     }
-    Ok(())
+    check_no_duplicates(addresses)
 }
 
 pub fn validate_date(date: &str) -> Result<(), OctavError> {
@@ -161,11 +180,17 @@ mod tests {
 
     #[test]
     fn test_addresses_limits() {
-        assert!(validate_addresses(&[]).is_err());
-        let addrs: Vec<String> = (0..11)
-            .map(|_| "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD68".to_string())
-            .collect();
-        assert!(validate_addresses(&addrs).is_err());
+        let a = "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD68".to_string();
+        let b = "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU".to_string();
+        assert!(validate_addresses(&[], SINGLE_ADDRESS).is_err());
+        assert!(validate_addresses(std::slice::from_ref(&a), SINGLE_ADDRESS).is_ok());
+        assert!(validate_addresses(&[a.clone(), b.clone()], SINGLE_ADDRESS).is_err());
+        assert!(validate_addresses(&[a.clone(), b.clone()], MAX_MULTI_ADDRESSES).is_ok());
+        assert!(validate_addresses(&[a.clone(), a.clone()], None).is_err());
+        let many: Vec<String> = (0..51).map(|i| format!("0x{:040x}", i)).collect();
+        assert!(validate_addresses(&many[..50], MAX_MULTI_ADDRESSES).is_ok());
+        assert!(validate_addresses(&many, MAX_MULTI_ADDRESSES).is_err());
+        assert!(validate_addresses(&many, None).is_ok());
     }
 
     #[test]

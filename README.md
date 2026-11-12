@@ -141,7 +141,7 @@ Get net asset value in a specified currency.
 octav portfolio nav --addresses 0x742d35Cc6634C0532925a3b844Bc9e7595f2bD68 --currency EUR
 ```
 
-Supported currencies: `USD` (default), `EUR`, `GBP`, `JPY`, `CNY`.
+Supported currencies: `USD` (default), `EUR`, `CAD`, `AED`, `CHF`, `SGD`, plus crypto `ETH`, `SOL`, `cbBTC`, `EURC`, `BNB`, `WHYPE`.
 
 #### `octav portfolio token-overview` — 1 credit/address
 
@@ -191,7 +191,7 @@ octav transactions get \
 | `--token-id` | Filter by NFT token ID | — |
 | `--start-date` | Start date (YYYY-MM-DD) | — |
 | `--end-date` | End date (YYYY-MM-DD) | — |
-| `--sort` | `asc` or `desc` by timestamp | `desc` |
+| `--sort` | `newest` or `oldest` by timestamp (`desc` / `asc` also accepted) | `newest` |
 | `--hide-spam` | Exclude spam transactions | off |
 | `--hide-dust` | Exclude dust transactions | off |
 | `--offset` | Pagination offset | `0` |
@@ -393,13 +393,21 @@ octav agent chains
 
 ## Multiple Addresses
 
-Most commands accept multiple addresses as a comma-separated list:
+Address limits follow the API:
+
+| Commands | Addresses |
+|----------|-----------|
+| `portfolio get`, `portfolio wallet`, `portfolio token-overview`, `transactions get`, `historical get`, `status`, `dashboard`, `agent wallet`, `agent portfolio`, `agent status` | One per call |
+| `portfolio nav`, `agent nav`, `virtual-users portfolio` | Up to 50, comma-separated |
+| `transactions sync`, `historical subscribe-snapshot` | Comma-separated, no limit |
+
+To cover several wallets with a one-address command, run it once per address:
 
 ```bash
-octav portfolio get --addresses 0xABC...123,0xDEF...456,7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU
+for ADDR in 0xABC...123 0xDEF...456; do
+  octav portfolio get --addresses "$ADDR"
+done
 ```
-
-Maximum 10 addresses per request.
 
 ## Authentication
 

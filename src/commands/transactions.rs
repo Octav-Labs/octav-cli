@@ -12,7 +12,7 @@ pub fn get(
     offset: u32,
     limit: u32,
 ) -> Result<Value, OctavError> {
-    validation::validate_addresses(addresses)?;
+    validation::validate_addresses(addresses, validation::SINGLE_ADDRESS)?;
     for addr in &filters.interacting_address {
         validation::validate_address(addr)?;
     }
@@ -31,6 +31,6 @@ pub fn get(
 }
 
 pub fn sync(client: &OctavClient, addresses: &[String]) -> Result<Value, OctavError> {
-    validation::validate_addresses(addresses)?;
+    validation::validate_addresses(addresses, None)?;
     client.sync_transactions(addresses)
 }

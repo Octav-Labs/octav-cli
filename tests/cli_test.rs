@@ -80,8 +80,9 @@ fn test_validation_error_invalid_address() {
 }
 
 #[test]
-fn test_validation_error_too_many_addresses() {
-    let addrs = ["0x742d35Cc6634C0532925a3b844Bc9e7595f2bD68"; 11].join(",");
+fn test_validation_error_portfolio_takes_one_address() {
+    let addrs =
+        "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD68,7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU";
     octav()
         .env_remove("OCTAV_API_KEY")
         .args([
@@ -90,11 +91,29 @@ fn test_validation_error_too_many_addresses() {
             "portfolio",
             "get",
             "--addresses",
-            &addrs,
+            addrs,
         ])
         .assert()
         .failure()
-        .stdout(predicate::str::contains("Maximum 10 addresses"));
+        .stdout(predicate::str::contains("one address per call"));
+}
+
+#[test]
+fn test_validation_error_too_many_nav_addresses() {
+    let addrs: Vec<String> = (0..51).map(|i| format!("0x{:040x}", i)).collect();
+    octav()
+        .env_remove("OCTAV_API_KEY")
+        .args([
+            "--api-key",
+            "test",
+            "portfolio",
+            "nav",
+            "--addresses",
+            &addrs.join(","),
+        ])
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains("Maximum 50 addresses"));
 }
 
 #[test]

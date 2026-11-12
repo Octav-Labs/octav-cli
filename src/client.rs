@@ -147,6 +147,7 @@ impl OctavClient {
     }
 
     pub fn sync_transactions(&self, addresses: &[String]) -> Result<Value, OctavError> {
+        let addresses: Vec<String> = addresses.iter().map(|a| body_address(a)).collect();
         let body = serde_json::json!({ "addresses": addresses });
         self.request(Method::POST, "/sync-transactions", &[], Some(body))
     }
@@ -166,7 +167,7 @@ impl OctavClient {
         let addr_objects: Vec<Value> = addresses
             .iter()
             .map(|a| {
-                let mut obj = serde_json::json!({ "address": a });
+                let mut obj = serde_json::json!({ "address": body_address(a) });
                 if let Some(desc) = description {
                     obj["description"] = serde_json::json!(desc);
                 }
@@ -345,8 +346,7 @@ impl OctavClient {
         aggregated: bool,
         options: &PortfolioOptions,
     ) -> Result<Value, OctavError> {
-        // Unlike other endpoints, virtual user addresses go in a single comma-separated value
-        let mut params = vec![("addresses", addresses.join(","))];
+        let mut params = address_params(addresses);
         if aggregated {
             params.push(("aggregated", "true".to_string()));
         }
@@ -393,8 +393,20 @@ impl OctavClient {
     }
 }
 
+/// The POST routes check an EVM address's checksum as sent, while the GET routes
+/// lowercase it first, so lowercase EVM addresses to get the same result.
+/// Solana addresses are case-sensitive and are sent unchanged.
+fn body_address(address: &str) -> String {
+    if address.starts_with("0x") {
+        address.to_lowercase()
+    } else {
+        address.to_string()
+    }
+}
+
+/// The API reads `addresses` as one comma-separated value; a repeated param is rejected
 fn address_params(addresses: &[String]) -> Params {
-    addresses.iter().map(|a| ("addresses", a.clone())).collect()
+    vec![("addresses", addresses.join(","))]
 }
 
 fn portfolio_params(options: &PortfolioOptions) -> Params {
@@ -486,13 +498,41 @@ mod tests {
     }
 
     #[test]
+    fn test_body_address_lowercases_evm_only() {
+        assert_eq!(
+            body_address("0x742d35Cc6634C0532925a3b844Bc9e7595f2bD68"),
+            "0x742d35cc6634c0532925a3b844bc9e7595f2bd68"
+        );
+        assert_eq!(
+            body_address("7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU"),
+            "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU"
+        );
+    }
+
+    #[test]
+    fn test_address_params_send_one_comma_separated_value() {
+        let addresses = vec![
+            "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD68".to_string(),
+            "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU".to_string(),
+        ];
+        assert_eq!(
+            address_params(&addresses),
+            vec![(
+                "addresses",
+                "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD68,7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU"
+                    .to_string()
+            )]
+        );
+    }
+
+    #[test]
     fn test_transaction_params_use_api_names() {
         let filters = TransactionFilters {
             chain: vec!["arbitrum".into(), "optimism".into()],
             tx_type: vec!["SWAP".into()],
             protocol: vec!["uniswap".into()],
             search: Some("USDC".into()),
-            sort: Some(SortOrder::Asc),
+            sort: Some(SortOrder::Oldest),
             hide_spam: true,
             ..Default::default()
         };
@@ -508,7 +548,7 @@ mod tests {
         assert_eq!(get("txTypes"), Some("SWAP"));
         assert_eq!(get("protocols"), Some("uniswap"));
         assert_eq!(get("initialSearchText"), Some("USDC"));
-        assert_eq!(get("sort"), Some("ASC"));
+        assert_eq!(get("sort"), Some("OLDEST"));
         assert_eq!(get("hideSpam"), Some("true"));
         assert_eq!(get("hideDust"), None);
         assert_eq!(get("offset"), Some("10"));

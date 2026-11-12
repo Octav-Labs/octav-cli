@@ -47,7 +47,7 @@ pub enum Command {
 
     /// Check sync status for addresses (FREE)
     Status {
-        /// Comma-separated wallet addresses
+        /// Wallet address (one per call)
         #[arg(long, required = true, value_delimiter = ',')]
         addresses: Vec<String>,
     },
@@ -128,7 +128,7 @@ pub enum Command {
 
     /// Interactive portfolio dashboard
     Dashboard {
-        /// Comma-separated wallet addresses
+        /// Wallet address (one per call)
         #[arg(long, required = true, value_delimiter = ',')]
         addresses: Vec<String>,
     },
@@ -165,7 +165,7 @@ pub enum AuthCommand {
 pub enum PortfolioCommand {
     /// Get full portfolio including DeFi positions
     Get {
-        /// Comma-separated wallet addresses
+        /// Wallet address (one per call)
         #[arg(long, required = true, value_delimiter = ',')]
         addresses: Vec<String>,
         #[command(flatten)]
@@ -173,22 +173,22 @@ pub enum PortfolioCommand {
     },
     /// Get wallet holdings only
     Wallet {
-        /// Comma-separated wallet addresses
+        /// Wallet address (one per call)
         #[arg(long, required = true, value_delimiter = ',')]
         addresses: Vec<String>,
     },
     /// Get net asset value
     Nav {
-        /// Comma-separated wallet addresses
+        /// Comma-separated wallet addresses (max 50)
         #[arg(long, required = true, value_delimiter = ',')]
         addresses: Vec<String>,
         /// Currency for NAV calculation
-        #[arg(long, default_value = "USD")]
+        #[arg(long, default_value = "USD", ignore_case = true)]
         currency: Currency,
     },
     /// Get token overview for a specific date
     TokenOverview {
-        /// Comma-separated wallet addresses
+        /// Wallet address (one per call)
         #[arg(long, required = true, value_delimiter = ',')]
         addresses: Vec<String>,
         /// Date in YYYY-MM-DD format
@@ -225,7 +225,7 @@ pub struct PortfolioOptions {
 pub enum TransactionsCommand {
     /// Get transactions
     Get {
-        /// Comma-separated wallet addresses
+        /// Wallet address (one per call)
         #[arg(long, required = true, value_delimiter = ',')]
         addresses: Vec<String>,
         #[command(flatten)]
@@ -271,7 +271,7 @@ pub struct TransactionFilters {
     /// End date (YYYY-MM-DD)
     #[arg(long)]
     pub end_date: Option<String>,
-    /// Sort order by timestamp [default: desc]
+    /// Sort order by timestamp [default: newest]
     #[arg(long, ignore_case = true)]
     pub sort: Option<SortOrder>,
     /// Exclude spam transactions
@@ -286,7 +286,7 @@ pub struct TransactionFilters {
 pub enum HistoricalCommand {
     /// Get historical portfolio data for a date
     Get {
-        /// Comma-separated wallet addresses
+        /// Wallet address (one per call)
         #[arg(long, required = true, value_delimiter = ',')]
         addresses: Vec<String>,
         /// Date in YYYY-MM-DD format
@@ -433,7 +433,7 @@ pub enum VirtualUsersCommand {
     List,
     /// Get portfolio for virtual users
     Portfolio {
-        /// Comma-separated virtual user addresses (virtual:<id>)
+        /// Comma-separated virtual user addresses (virtual:<id>, max 50)
         #[arg(long, required = true, value_delimiter = ',')]
         addresses: Vec<String>,
         /// Return a single portfolio aggregated across all virtual users
@@ -448,28 +448,28 @@ pub enum VirtualUsersCommand {
 pub enum AgentCommand {
     /// Get wallet data via x402 payment
     Wallet {
-        /// Comma-separated wallet addresses
+        /// Wallet address (one per call)
         #[arg(long, required = true, value_delimiter = ',')]
         addresses: Vec<String>,
     },
     /// Get portfolio data via x402 payment
     Portfolio {
-        /// Comma-separated wallet addresses
+        /// Wallet address (one per call)
         #[arg(long, required = true, value_delimiter = ',')]
         addresses: Vec<String>,
     },
     /// Get net asset value via x402 payment
     Nav {
-        /// Comma-separated wallet addresses
+        /// Comma-separated wallet addresses (max 50)
         #[arg(long, required = true, value_delimiter = ',')]
         addresses: Vec<String>,
         /// Currency for NAV calculation
-        #[arg(long, default_value = "USD")]
+        #[arg(long, default_value = "USD", ignore_case = true)]
         currency: Currency,
     },
     /// Get sync status via x402 payment
     Status {
-        /// Comma-separated wallet addresses
+        /// Wallet address (one per call)
         #[arg(long, required = true, value_delimiter = ',')]
         addresses: Vec<String>,
     },
@@ -477,39 +477,72 @@ pub enum AgentCommand {
     Chains,
 }
 
+/// NAV currencies the API accepts: fiat, then crypto conversion rates
 #[derive(Debug, Clone, ValueEnum)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum Currency {
+    #[value(name = "USD")]
     USD,
+    #[value(name = "EUR")]
     EUR,
-    GBP,
-    JPY,
-    CNY,
+    #[value(name = "CAD")]
+    CAD,
+    #[value(name = "AED")]
+    AED,
+    #[value(name = "CHF")]
+    CHF,
+    #[value(name = "SGD")]
+    SGD,
+    #[value(name = "ETH")]
+    ETH,
+    #[value(name = "SOL")]
+    SOL,
+    #[value(name = "cbBTC")]
+    CbBTC,
+    #[value(name = "EURC")]
+    EURC,
+    #[value(name = "BNB")]
+    BNB,
+    #[value(name = "WHYPE")]
+    WHYPE,
 }
 
 impl std::fmt::Display for Currency {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Currency::USD => write!(f, "USD"),
-            Currency::EUR => write!(f, "EUR"),
-            Currency::GBP => write!(f, "GBP"),
-            Currency::JPY => write!(f, "JPY"),
-            Currency::CNY => write!(f, "CNY"),
-        }
+        // The API matches currency codes case-sensitively
+        f.write_str(match self {
+            Currency::USD => "USD",
+            Currency::EUR => "EUR",
+            Currency::CAD => "CAD",
+            Currency::AED => "AED",
+            Currency::CHF => "CHF",
+            Currency::SGD => "SGD",
+            Currency::ETH => "ETH",
+            Currency::SOL => "SOL",
+            Currency::CbBTC => "cbBTC",
+            Currency::EURC => "EURC",
+            Currency::BNB => "BNB",
+            Currency::WHYPE => "WHYPE",
+        })
     }
 }
 
 #[derive(Debug, Clone, ValueEnum)]
 pub enum SortOrder {
-    Asc,
-    Desc,
+    /// Newest first (the API default)
+    #[value(alias = "desc")]
+    Newest,
+    /// Oldest first
+    #[value(alias = "asc")]
+    Oldest,
 }
 
 impl std::fmt::Display for SortOrder {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            SortOrder::Asc => write!(f, "ASC"),
-            SortOrder::Desc => write!(f, "DESC"),
+            // The API ignores any other value and returns newest first
+            SortOrder::Newest => write!(f, "NEWEST"),
+            SortOrder::Oldest => write!(f, "OLDEST"),
         }
     }
 }
