@@ -170,10 +170,12 @@ fn check_address_count(addresses: &[String], max: Option<usize>) -> Result<(), O
     }
 }
 
+/// Normalized first, so `0xAbc…` and a prefixless `abc…` count as the same address
 fn check_no_duplicates(addresses: &[String]) -> Result<(), OctavError> {
-    if has_duplicates(addresses) {
+    let normalized: Vec<String> = addresses.iter().map(|a| normalize_address(a)).collect();
+    if has_duplicates(&normalized) {
         return Err(duplicate_error(find_duplicate(addresses, |a| {
-            a.to_lowercase()
+            normalize_address(a).to_lowercase()
         })));
     }
     Ok(())
@@ -271,6 +273,8 @@ mod tests {
         assert!(validate_addresses(&v(&[&lo, &up]), MAX_MULTI_ADDRESSES).is_err());
         assert!(validate_addresses(&v(&[&sol, &sol_case]), MAX_MULTI_ADDRESSES).is_err());
         assert!(validate_virtual_addresses(&["virtual:abc".into(), "virtual:ABC".into()]).is_err());
+        let bare = up.trim_start_matches("0x").to_string();
+        assert!(validate_addresses(&v(&[&up, &bare]), MAX_MULTI_ADDRESSES).is_err());
 
         // hasDuplicateAddresses after normalizeAddress (address book, bundles)
         assert!(validate_address_list(&v(&[&lo, &up]), 100).is_err());
