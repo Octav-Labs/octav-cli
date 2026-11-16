@@ -9,7 +9,7 @@ pub fn credits(client: &OctavClient) -> Result<Value, OctavError> {
 }
 
 pub fn status(client: &OctavClient, addresses: &[String]) -> Result<Value, OctavError> {
-    validation::validate_addresses(addresses)?;
+    validation::validate_addresses(addresses, validation::SINGLE_ADDRESS)?;
     client.get_status(addresses)
 }
 

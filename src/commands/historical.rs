@@ -5,7 +5,7 @@ use crate::error::OctavError;
 use crate::validation;
 
 pub fn get(client: &OctavClient, addresses: &[String], date: &str) -> Result<Value, OctavError> {
-    validation::validate_addresses(addresses)?;
+    validation::validate_addresses(addresses, validation::SINGLE_ADDRESS)?;
     validation::validate_date(date)?;
     client.get_historical(addresses, date)
 }
@@ -15,6 +15,6 @@ pub fn subscribe_snapshot(
     addresses: &[String],
     description: Option<&str>,
 ) -> Result<Value, OctavError> {
-    validation::validate_addresses(addresses)?;
+    validation::validate_addresses(addresses, None)?;
     client.subscribe_snapshot(addresses, description)
 }
