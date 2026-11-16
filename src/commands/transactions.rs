@@ -31,7 +31,7 @@ pub fn get(
 }
 
 pub fn sync(client: &OctavClient, addresses: &[String]) -> Result<Value, OctavError> {
-    // The API charges for every address in the body but only syncs the first
+    // The API syncs one address per call
     validation::validate_addresses(addresses, validation::SINGLE_ADDRESS)?;
     client.sync_transactions(addresses)
 }
